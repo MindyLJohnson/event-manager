@@ -1,6 +1,7 @@
 require 'csv'
 require 'google/apis/civicinfo_v2'
 require 'erb'
+require 'time'
 
 def clean_phone_number(phone_number)
   phone_number = phone_number.delete(' .()-').delete_prefix('1')[0..9]
@@ -28,11 +29,27 @@ end
 
 def save_thank_you_letter(id, form_letter)
   Dir.mkdir('output') unless Dir.exist?('output')
-
   filename = "output/thanks_#{id}.html"
+  File.open(filename, 'w') { |file| file.puts form_letter }
+end
 
-  File.open(filename, 'w') do |file|
-    file.puts form_letter
+def count_reg_hours(reg_date)
+  Time.strptime(reg_date, '%m/%d/%Y %k:%M').hour
+end
+
+def print_peak_hours(peak_hours)
+  if peak_hours.length > 2
+    peak_hours.reduce('') do |print_hours, hour|
+      if hour == peak_hours.last
+        print_hours + "and #{hour}:00."
+      else 
+        print_hours + "#{hour}:00, "
+      end
+    end
+  elsif peak_hours.length == 2
+    "#{peak_hours[0]}:00 and #{peak_hours[1]}:00"
+  else
+    "#{peak_hours}:00"
   end
 end
 
@@ -46,6 +63,7 @@ content = CSV.open(
 
 template_letter = File.read('form_letter.erb')
 erb_template = ERB.new template_letter
+reg_hours = Hash.new(0)
 
 content.each do |row|
   id = row[0]
@@ -55,4 +73,9 @@ content.each do |row|
   legislators = legislators_by_zipcode(zipcode)
   form_letter = erb_template.result(binding)
   save_thank_you_letter(id, form_letter)
+  reg_hours[count_reg_hours(row[:regdate])] += 1
 end
+
+peak_hours = reg_hours.select { |k, v| v == reg_hours.max_by(&:last)[1] }.keys
+
+puts "The peak registration hours are #{print_peak_hours(peak_hours)}"
