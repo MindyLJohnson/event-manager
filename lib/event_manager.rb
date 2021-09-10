@@ -34,22 +34,26 @@ def save_thank_you_letter(id, form_letter)
 end
 
 def count_reg_hours(reg_date)
-  Time.strptime(reg_date, '%m/%d/%Y %k:%M').hour
+  "#{Time.strptime(reg_date, '%m/%d/%Y %k:%M').hour}:00"
 end
 
-def print_peak_hours(peak_hours)
-  if peak_hours.length > 2
-    peak_hours.reduce('') do |print_hours, hour|
-      if hour == peak_hours.last
-        print_hours + "and #{hour}:00."
+def count_reg_days(reg_date)
+  Date::DAYNAMES[Time.strptime(reg_date, '%m/%d/%Y %k:%M').wday]
+end
+
+def print_peaks(peaks)
+  if peaks.length > 2
+    peaks.reduce('') do |print_peaks, peak|
+      if peak == peaks.last
+        "s are " + print_peaks + "and #{peak}."
       else 
-        print_hours + "#{hour}:00, "
+        "s are " + print_peaks + "#{peak}, "
       end
     end
-  elsif peak_hours.length == 2
-    "#{peak_hours[0]}:00 and #{peak_hours[1]}:00"
+  elsif peaks.length == 2
+    "s are #{peaks[0]} and #{peaks[1]}."
   else
-    "#{peak_hours}:00"
+    " is #{peaks[0]}."
   end
 end
 
@@ -64,6 +68,7 @@ content = CSV.open(
 template_letter = File.read('form_letter.erb')
 erb_template = ERB.new template_letter
 reg_hours = Hash.new(0)
+reg_days = Hash.new(0)
 
 content.each do |row|
   id = row[0]
@@ -74,8 +79,11 @@ content.each do |row|
   form_letter = erb_template.result(binding)
   save_thank_you_letter(id, form_letter)
   reg_hours[count_reg_hours(row[:regdate])] += 1
+  reg_days[count_reg_days(row[:regdate])] += 1
 end
 
 peak_hours = reg_hours.select { |k, v| v == reg_hours.max_by(&:last)[1] }.keys
+peak_days = reg_days.select { |k, v| v == reg_days.max_by(&:last)[1] }.keys
 
-puts "The peak registration hours are #{print_peak_hours(peak_hours)}"
+puts "The peak registration hour#{print_peaks(peak_hours)}"
+puts "The peak registration weekday#{print_peaks(peak_days)}"
